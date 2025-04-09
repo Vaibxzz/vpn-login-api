@@ -1,0 +1,18 @@
+{
+    "admin": {
+        "password": "admin123",
+        "role": "admin"
+    },
+    "Vaibhav": {
+        "password": "vaibhav11$",
+        "role": "user"
+    },
+    "vaibxzz": {
+        "password": "LJKRhgsgyG2oIlpDhKRplA==",
+        "role": "user"
+    },
+    "vaibhav": {
+        "password": "QblSxVcYtiaS0XihkwEk0g==",
+        "role": "user"
+    }
+}

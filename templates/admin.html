@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Admin Panel</title>
+</head>
+<body>
+    <h2>Admin Panel</h2>
+    {% with messages = get_flashed_messages() %}
+      {% if messages %}
+        <ul>
+          {% for msg in messages %}
+            <li>{{ msg }}</li>
+          {% endfor %}
+        </ul>
+      {% endif %}
+    {% endwith %}
+
+    {% if users %}
+        <h3>Registered Users:</h3>
+        <ul>
+            {% for user, data in users.items() %}
+                <li>{{ user }} - Role: {{ data.role }}</li>
+            {% endfor %}
+        </ul>
+    {% else %}
+        <form method="POST">
+            Admin Password: <input type="password" name="adminpass" required>
+            <input type="submit" value="Enter Admin Panel">
+        </form>
+    {% endif %}
+
+    {% if users %}
+    <hr>
+    <h3>Register New User</h3>
+    <form method="POST">
+        Username: <input type="text" name="newuser" required><br>
+        Password: <input type="password" name="newpass" required><br>
+        <input type="submit" value="Register">
+    </form>
+    {% endif %}
+</body>
+</html>
