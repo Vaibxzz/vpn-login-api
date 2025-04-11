@@ -2,41 +2,86 @@
 <html>
 <head>
     <title>Admin Panel</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background-color: #f9f9f9;
+        }
+        h2 {
+            color: #333;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+            background-color: white;
+        }
+        th, td {
+            border: 1px solid #ccc;
+            padding: 8px;
+            text-align: center;
+        }
+        form {
+            display: inline;
+        }
+        button {
+            padding: 5px 10px;
+            margin: 2px;
+        }
+        .approved {
+            color: green;
+            font-weight: bold;
+        }
+        .not-approved {
+            color: red;
+            font-weight: bold;
+        }
+    </style>
 </head>
 <body>
-    <h2>Admin Panel</h2>
-    {% with messages = get_flashed_messages() %}
-      {% if messages %}
-        <ul>
-          {% for msg in messages %}
-            <li>{{ msg }}</li>
-          {% endfor %}
-        </ul>
-      {% endif %}
-    {% endwith %}
+    <h2>🔐 Admin Panel</h2>
 
-    {% if users %}
-        <h3>Registered Users:</h3>
-        <ul>
-            {% for user, data in users.items() %}
-                <li>{{ user }} - Role: {{ data.role }}</li>
-            {% endfor %}
-        </ul>
-    {% else %}
-        <form method="POST">
-            Admin Password: <input type="password" name="adminpass" required>
-            <input type="submit" value="Enter Admin Panel">
-        </form>
-    {% endif %}
+    <table>
+        <tr>
+            <th>Username</th>
+            <th>Approved</th>
+            <th>Actions</th>
+        </tr>
+        {% for username, user in users.items() %}
+        <tr>
+            <td>{{ username }}</td>
+            <td class="{{ 'approved' if user.approved else 'not-approved' }}">
+                {{ 'Yes' if user.approved else 'No' }}
+            </td>
+            <td>
+                <form method="POST">
+                    <input type="hidden" name="username" value="{{ username }}">
+                    <input type="hidden" name="action" value="approve">
+                    <button type="submit">✅ Approve</button>
+                </form>
+                <form method="POST">
+                    <input type="hidden" name="username" value="{{ username }}">
+                    <input type="hidden" name="action" value="remove">
+                    <button type="submit">❌ Remove</button>
+                </form>
+            </td>
+        </tr>
+        {% endfor %}
+    </table>
 
-    {% if users %}
     <hr>
-    <h3>Register New User</h3>
+    <h3>Add New User</h3>
     <form method="POST">
-        Username: <input type="text" name="newuser" required><br>
-        Password: <input type="password" name="newpass" required><br>
-        <input type="submit" value="Register">
+        <input type="hidden" name="action" value="add">
+        Username: <input type="text" name="new_username" required>
+        Password: <input type="password" name="new_password" required>
+        <button type="submit">➕ Add User</button>
     </form>
-    {% endif %}
+
+    <hr>
+    <form action="/login">
+        <button type="submit">🔙 Back to Login</button>
+    </form>
 </body>
 </html>

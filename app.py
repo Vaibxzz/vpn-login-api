@@ -1,104 +1,115 @@
-from flask import Flask, render_template, request, redirect, session, flash
-import json
-import os
+from flask import Flask, request, render_template, redirect, session, jsonify
 from Crypto.Cipher import AES
-import base64
+import base64, json, os, requests
+from datetime import datetime
 
-# AES must use 16, 24, or 32 byte key
-AES_KEY = b'ThisIsASecretKey'  # keep this same in vpn_gui.py too!
-
-def pad(text):
-    return text + (16 - len(text) % 16) * ' '
-
-def encrypt_password(password):
-    cipher = AES.new(AES_KEY, AES.MODE_ECB)
-    padded = pad(password).encode()
-    encrypted = cipher.encrypt(padded)
-    return base64.b64encode(encrypted).decode()
-
-def decrypt_password(encrypted_password):
-    cipher = AES.new(AES_KEY, AES.MODE_ECB)
-    decoded = base64.b64decode(encrypted_password)
-    decrypted = cipher.decrypt(decoded).decode().rstrip()
-    return decrypted
 app = Flask(__name__)
+app.secret_key = "super_secret_key"
 
-# Load secret key for Flask session
-with open("secret_key.txt", "r") as f:
-    app.secret_key = f.read()
+AES_KEY = b'ThisIsASecretKey'
+USERS_FILE = "users.json"
+LOG_FILE = "vpn_logs.csv"
 
-# Load users from JSON
+# === Padding helpers ===
+def pad(msg):
+    return msg + (16 - len(msg) % 16) * ' '
+
+# === AES password functions ===
+def encrypt_password(pwd):
+    cipher = AES.new(AES_KEY, AES.MODE_ECB)
+    return base64.b64encode(cipher.encrypt(pad(pwd).encode())).decode()
+
+def decrypt_password(enc_pwd):
+    cipher = AES.new(AES_KEY, AES.MODE_ECB)
+    decrypted = cipher.decrypt(base64.b64decode(enc_pwd)).decode().rstrip()
+    return decrypted
+
+# === Load/save user data ===
 def load_users():
-    with open("users.json", "r") as f:
-        return json.load(f)
+    if os.path.exists(USERS_FILE):
+        with open(USERS_FILE, "r") as f:
+            return json.load(f)
+    return {}
 
-# Save users to JSON
-def save_users(users):
-    with open("users.json", "w") as f:
-        json.dump(users, f, indent=4)
+def save_users(data):
+    with open(USERS_FILE, "w") as f:
+        json.dump(data, f, indent=4)
 
-# === Routes ===
+# === Logging uploads ===
+def log_upload(username, ip, location):
+    if not os.path.exists(LOG_FILE):
+        with open(LOG_FILE, "w") as f:
+            f.write("Time,Username,IP,Location\n")
+    with open(LOG_FILE, "a") as f:
+        f.write(f"{datetime.now()},{username},{ip},{location}\n")
 
-@app.route("/")
-def home():
-    return redirect("/login")
-
+# === Login Route ===
+@app.route("/", methods=["GET", "POST"])
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
+        username = request.form.get("username")
+        password = request.form.get("password")
         users = load_users()
-        username = request.form["username"]
-        password = request.form["password"]
-        if username in users and decrypt_password(users[username]["password"]) == password:
-            session["username"] = username
-            return redirect("/dashboard")
-        else:
-            flash("Invalid credentials!")
+
+        if username in users:
+            user = users[username]
+            if user.get("approved") and decrypt_password(user["password"]) == password:
+                session["username"] = username
+                if username == "admin":
+                    return redirect("/admin")
+                return redirect("/dashboard")
+            else:
+                return render_template("login.html", error="Not approved or wrong password")
+        return render_template("login.html", error="User not found")
     return render_template("login.html")
 
-@app.route("/dashboard")
-def dashboard():
-    if "username" not in session:
-        return redirect("/login")
-    return f"<h2>Welcome, {session['username']}!</h2><br><a href='/logout'>Logout</a>"
-
+# === Logout ===
 @app.route("/logout")
 def logout():
     session.pop("username", None)
     return redirect("/login")
 
-@app.route("/admin", methods=["GET", "POST"])
-def admin():
-    if request.method == "POST":
-        admin_pass = request.form["adminpass"]
-        if admin_pass == "admin123":  # or load from env later
-            session["is_admin"] = True
-            return redirect("/adminpanel")
-        else:
-            flash("Wrong admin password!")
-    return render_template("admin.html")
+# === Dashboard (User) ===
+@app.route("/dashboard")
+def dashboard():
+    if "username" not in session:
+        return redirect("/login")
+    return render_template("dashboard.html", username=session["username"])
 
-@app.route("/adminpanel", methods=["GET", "POST"])
-def adminpanel():
-    if not session.get("is_admin"):
-        return redirect("/admin")
+# === Admin Panel ===
+@app.route("/admin", methods=["GET", "POST"])
+def admin_panel():
+    if "username" not in session or session["username"] != "admin":
+        return redirect("/login")
 
     users = load_users()
 
     if request.method == "POST":
-        new_user = request.form["newuser"]
-        new_pass = request.form["newpass"]
-        if new_user in users:
-            flash("User already exists!")
-        else:
-            users[new_user] = {
-                "password": encrypt_password(new_pass),
-                "role": "user"
-            }
-            save_users(users)
-            flash("User registered successfully!")
-    
+        action = request.form.get("action")
+        username = request.form.get("username")
+
+        if action == "approve":
+            if username in users:
+                users[username]["approved"] = True
+                save_users(users)
+        elif action == "remove":
+            if username in users:
+                users.pop(username)
+                save_users(users)
+        elif action == "add":
+            new_username = request.form.get("new_username")
+            new_password = request.form.get("new_password")
+            if new_username and new_password:
+                users[new_username] = {
+                    "password": encrypt_password(new_password),
+                    "approved": False
+                }
+                save_users(users)
+
     return render_template("admin.html", users=users)
+
+# === API Login for vpn_gui.py ===
 @app.route("/api/login", methods=["POST"])
 def api_login():
     try:
@@ -110,7 +121,19 @@ def api_login():
         if username in users:
             stored_password = users[username]["password"]
             if decrypt_password(stored_password) == password:
-                return {"status": "success"}, 200
+                # Get IP + location
+                client_ip = request.headers.get("X-Forwarded-For", request.remote_addr)
+                try:
+                    lookup = requests.get(f"http://ip-api.com/json/{client_ip}", timeout=5).json()
+                    location = f"{lookup.get('city', 'Unknown')}, {lookup.get('countryCode', '')}"
+                except:
+                    location = "Unknown"
+
+                return {
+                    "status": "success",
+                    "ip": client_ip,
+                    "location": location
+                }, 200
 
         return {"status": "error", "message": "Invalid credentials"}, 401
 

@@ -1,18 +1,14 @@
 {
     "admin": {
-        "password": "admin123",
-        "role": "admin"
+        "password": "aERNDt5/M+zClYZhHIFm5w==",
+        "approved": true
     },
-    "Vaibhav": {
-        "password": "vaibhav11$",
-        "role": "user"
+    "piya": {
+        "password": "87tXObut18QGZF9CPeA/SQ==",
+        "approved": true
     },
-    "vaibxzz": {
-        "password": "LJKRhgsgyG2oIlpDhKRplA==",
-        "role": "user"
-    },
-    "vaibhav": {
-        "password": "QblSxVcYtiaS0XihkwEk0g==",
-        "role": "user"
+    "kiya": {
+        "password": "87tXObut18QGZF9CPeA/SQ==",
+        "approved": true
     }
 }
